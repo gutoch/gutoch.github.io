@@ -8,7 +8,6 @@ Ops.Gl=Ops.Gl || {};
 Ops.Anim=Ops.Anim || {};
 Ops.Math=Ops.Math || {};
 Ops.Array=Ops.Array || {};
-Ops.Patch=Ops.Patch || {};
 Ops.Boolean=Ops.Boolean || {};
 Ops.Devices=Ops.Devices || {};
 Ops.Gl.GLTF=Ops.Gl.GLTF || {};
@@ -7225,116 +7224,6 @@ op.onMasterVolumeChanged = function(v) {
 
 Ops.WebAudio.Output.prototype = new CABLES.Op();
 CABLES.OPS["53fdbf4a-bc8d-4c5d-a698-f34fdeb53827"]={f:Ops.WebAudio.Output,objName:"Ops.WebAudio.Output"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Patch.PlayButton
-// 
-// **************************************************************
-
-Ops.Patch.PlayButton = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={inner_css:"\nborder-style:solid;\nborder-color:transparent transparent transparent #ccc;\nbox-sizing:border-box;\nwidth:50px;\nheight:50px;\nmargin-top:25px;\nmargin-left:36px;\nborder-width:25px 0px 25px 40px;\npointer-events:none;\n",outer_css:"width:100px;\nheight:100px;\nleft:50%;\ntop:50%;\nborder-radius:100%;\n\nmargin-left:-50px;\nposition:absolute;\ncursor:pointer;\nopacity:0.7;\ntransform:translate(0,-50%);\nz-index:999999;\nbackground-color:#333;\nborder:5px solid #333;",};
-const
-    inExec = op.inTrigger("Trigger"),
-    inIfSuspended = op.inValueBool("Only if Audio Suspended"),
-    inReset = op.inTriggerButton("Reset"),
-    inStyleOuter = op.inStringEditor("Style Outer", attachments.outer_css),
-    inStyleInner = op.inStringEditor("Style Inner", attachments.inner_css),
-    outNext = op.outTrigger("Next"),
-    notClickedNext = op.outTrigger("Not Clicked"),
-    outState = op.outString("Audiocontext State"),
-    outEle = op.outObject("Element"),
-    outClicked = op.outValueBool("Clicked", false),
-    outClickedTrigger = op.outTrigger("Clicked Trigger");
-
-op.toWorkPortsNeedToBeLinked(inExec);
-
-const canvas = op.patch.cgl.canvas.parentElement;
-let wasClicked = false;
-let ele = null;
-let elePlay = null;
-createElements();
-
-inStyleOuter.onChange =
-    inStyleInner.onChange = createElements;
-
-function createElements()
-{
-    if (elePlay) elePlay.remove();
-    if (ele) ele.remove();
-
-    ele = document.createElement("div");
-    ele.style = inStyleOuter.get();
-    outEle.set(ele);
-    canvas.appendChild(ele);
-
-    elePlay = document.createElement("div");
-    elePlay.style = inStyleInner.get();
-
-    ele.appendChild(elePlay);
-
-    ele.addEventListener("mouseenter", hover);
-    ele.addEventListener("mouseleave", hoverOut);
-    ele.addEventListener("click", clicked);
-    ele.addEventListener("touchStart", clicked);
-    op.onDelete = removeElements;
-}
-
-inReset.onTriggered = function ()
-{
-    createElements();
-    wasClicked = false;
-    outClicked.set(wasClicked);
-};
-
-inExec.onTriggered = function ()
-{
-    if (window.audioContext)
-    {
-        outState.set(window.audioContext.state);
-    }
-
-    if (inIfSuspended.get() && window.audioContext.state == "running") clicked();
-    if (wasClicked) outNext.trigger();
-    else notClickedNext.trigger();
-};
-
-function clicked()
-{
-    removeElements();
-    if (window.audioContext && window.audioContext.state == "suspended")window.audioContext.resume();
-    wasClicked = true;
-    outClicked.set(wasClicked);
-    outClickedTrigger.trigger();
-}
-
-function removeElements()
-{
-    if (elePlay) elePlay.remove();
-    if (ele) ele.remove();
-}
-
-function hoverOut()
-{
-    if (ele) ele.style.opacity = 0.7;
-}
-
-function hover()
-{
-    if (ele) ele.style.opacity = 1.0;
-}
-
-
-};
-
-Ops.Patch.PlayButton.prototype = new CABLES.Op();
-CABLES.OPS["32e53fa2-4545-4c53-a94d-2204aa079246"]={f:Ops.Patch.PlayButton,objName:"Ops.Patch.PlayButton"};
 
 
 window.addEventListener('load', function(event) {
