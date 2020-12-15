@@ -74,6 +74,10 @@ body {
     loop 10s infinite;
 }
 
+a {
+  text-decoration: none;
+}
+
 @keyframes loop {
   0%, 100% {
     transform: translate(0, -20%);
