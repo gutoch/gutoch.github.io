@@ -70,8 +70,19 @@ body {
     height: relative;
     right: 25%;
     top: 35%;
+    animation: 
+    loop 10s infinite;
+}
 
+@keyframes loop {
+  0%, 100% {
+    transform: translate(0, -20%);
   }
+  
+  50% {
+    transform: translate(0, 20%);
+  }
+}
 
   .mobile-container {
     visibility: hidden;
