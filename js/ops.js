@@ -342,7 +342,7 @@ let doLockPointer = false;
 pointerLock.onChange = function ()
 {
     doLockPointer = pointerLock.get();
-    console.log("doLockPointer", doLockPointer);
+    op.log("doLockPointer", doLockPointer);
 };
 
 const halfCircle = Math.PI;
@@ -1121,6 +1121,7 @@ op.onAnimFrame = function (tt)
     {
         if (CABLES.overwriteTime !== undefined)
         {
+            console.log("overwritten time!", CABLES.overwriteTime);
             outTime.set(CABLES.overwriteTime * inSpeed.get());
         }
         else
@@ -1422,7 +1423,6 @@ function readChunk(dv, bArr, arrayBuffer, offset)
         // console.log(chunk.size,arrayBuffer.length,offset);
         // try
         // {
-console.log(chunk.size);
         chunk.dataView = new DataView(arrayBuffer, offset + 8, chunk.size);
         // }
         // catch(e)
@@ -4170,21 +4170,28 @@ function updateResolution()
         texOut.set(tex);
     }
 
-    if (texOut.get())
-        if (!texOut.get().isPowerOfTwo())
-        {
-            if (!op.uiAttribs.hint)
-                op.uiAttr(
-                    {
-                        "hint": "texture dimensions not power of two! - texture filtering will not work.",
-                        "warning": null
-                    });
-        }
-        else
-        if (op.uiAttribs.hint)
-        {
-            op.uiAttr({ "hint": null, "warning": null }); // todo only when needed...
-        }
+    if (texOut.get() && selectedFilter != CGL.Texture.FILTER_NEAREST)
+    {
+        if (!texOut.get().isPowerOfTwo()) op.setUiError("hintnpot", "texture dimensions not power of two! - texture filtering when scaling will not work on ios devices.", 0);
+        else op.setUiError("hintnpot", null, 0);
+    }
+    else op.setUiError("hintnpot", null, 0);
+
+    // if (texOut.get())
+    //     if (!texOut.get().isPowerOfTwo())
+    //     {
+    //         if (!op.uiAttribs.hint)
+    //             op.uiAttr(
+    //                 {
+    //                     "hint": "texture dimensions not power of two! - texture filtering will not work.",
+    //                     "warning": null
+    //                 });
+    //     }
+    //     else
+    //     if (op.uiAttribs.hint)
+    //     {
+    //         op.uiAttr({ "hint": null, "warning": null }); // todo only when needed...
+    //     }
 }
 
 function updateSizePorts()
@@ -5817,6 +5824,9 @@ const uniAlpha = new CGL.Uniform(bgShader, "f", "a", !inTransp.get());
 let selectedFilter = CGL.Texture.FILTER_LINEAR;
 let selectedWrap = CGL.Texture.WRAP_CLAMP_TO_EDGE;
 
+const fps = 0;
+const fpsStart = 0;
+
 twrap.onChange = onWrapChange;
 tfilter.onChange = onFilterChange;
 
@@ -5836,11 +5846,14 @@ function initEffect()
     if (effect)effect.delete();
     if (tex)tex.delete();
 
+    if (fpTexture.get() && tfilter.get() == "mipmap") op.setUiError("fpmipmap", "Don't use mipmap and HDR at the same time, many systems do not support this.");
+    else op.setUiError("fpmipmap", null);
+
     effect = new CGL.TextureEffect(cgl, { "isFloatingPointTexture": fpTexture.get() });
 
     tex = new CGL.Texture(cgl,
         {
-            "name": "image compose",
+            "name": "image_compose_v2" + op.id,
             "isFloatingPointTexture": fpTexture.get(),
             "filter": selectedFilter,
             "wrap": selectedWrap,
@@ -5885,9 +5898,12 @@ function updateResolution()
         texOut.set(tex);
     }
 
-    if (texOut.get())
-        if (!texOut.get().isPowerOfTwo()) op.setUiError("hintnpot", "texture dimensions not power of two! - texture filtering will not work.", 0);
+    if (texOut.get() && selectedFilter != CGL.Texture.FILTER_NEAREST)
+    {
+        if (!texOut.get().isPowerOfTwo()) op.setUiError("hintnpot", "texture dimensions not power of two! - texture filtering when scaling will not work on ios devices.", 0);
         else op.setUiError("hintnpot", null, 0);
+    }
+    else op.setUiError("hintnpot", null, 0);
 }
 
 function updateSizePorts()
@@ -5899,17 +5915,6 @@ function updateSizePorts()
 useVPSize.onChange = function ()
 {
     updateSizePorts();
-    if (useVPSize.get())
-    {
-        width.onChange = null;
-        height.onChange = null;
-    }
-    else
-    {
-        width.onChange = updateResolution;
-        height.onChange = updateResolution;
-    }
-    updateResolution();
 };
 
 op.preRender = function ()
@@ -5951,6 +5956,24 @@ function doRender()
 
     cgl.setViewPort(prevViewPort[0], prevViewPort[1], prevViewPort[2], prevViewPort[3]);
 
+    // if(selectedFilter == CGL.Texture.FILTER_MIPMAP)
+    // {
+    // fps++;
+
+    // if(performance.now()-fpsStart>1000)
+    // {
+    //     if(fps>10)
+    //     {
+    //     op.setUiError("manymipmap", "generating mipmaps", 1);
+    //     }
+    //     else op.setUiError("manymipmap", null, 1);
+
+    //     fps=0;
+    //     fpsStart=performance.now();
+
+    // }
+    // }
+
     cgl.popBlend(false);
     cgl.currentTextureEffect = null;
 }
@@ -5962,7 +5985,7 @@ function onWrapChange()
     if (twrap.get() == "clamp to edge") selectedWrap = CGL.Texture.WRAP_CLAMP_TO_EDGE;
 
     reInitEffect = true;
-    updateResolution();
+    // updateResolution();
 }
 
 function onFilterChange()
@@ -5972,7 +5995,7 @@ function onFilterChange()
     if (tfilter.get() == "mipmap") selectedFilter = CGL.Texture.FILTER_MIPMAP;
 
     reInitEffect = true;
-    updateResolution();
+    // updateResolution();
 }
 
 
@@ -5994,7 +6017,7 @@ Ops.Gl.TextureEffects.DrawImage_v3 = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
-const attachments={drawimage_frag:"#ifdef HAS_TEXTURES\n    IN vec2 texCoord;\n    UNI sampler2D tex;\n    UNI sampler2D image;\n#endif\n\nIN mat3 transform;\nUNI float rotate;\n\n{{CGL.BLENDMODES}}\n\n#ifdef HAS_TEXTUREALPHA\n   UNI sampler2D imageAlpha;\n#endif\n\nUNI float amount;\n\n#ifdef ASPECT_RATIO\n    UNI float aspectTex;\n    UNI float aspectPos;\n#endif\n\nvoid main()\n{\n    vec4 blendRGBA=vec4(0.0,0.0,0.0,1.0);\n    #ifdef HAS_TEXTURES\n        vec2 tc=texCoord;\n\n        #ifdef TEX_FLIP_X\n            tc.x=1.0-tc.x;\n        #endif\n        #ifdef TEX_FLIP_Y\n            tc.y=1.0-tc.y;\n        #endif\n\n        #ifdef ASPECT_RATIO\n            #ifdef ASPECT_AXIS_X\n                tc.y=(1.0-aspectPos)-(((1.0-aspectPos)-tc.y)*aspectTex);\n            #endif\n            #ifdef ASPECT_AXIS_Y\n                tc.x=(1.0-aspectPos)-(((1.0-aspectPos)-tc.x)/aspectTex);\n            #endif\n        #endif\n\n        #ifdef TEX_TRANSFORM\n            vec3 coordinates=vec3(tc.x, tc.y,1.0);\n            tc=(transform * coordinates ).xy;\n        #endif\n\n        blendRGBA=texture(image,tc);\n\n        vec3 blend=blendRGBA.rgb;\n        vec4 baseRGBA=texture(tex,texCoord);\n        vec3 base=baseRGBA.rgb;\n        vec3 colNew=_blend(base,blend);\n\n        #ifdef REMOVE_ALPHA_SRC\n            blendRGBA.a=1.0;\n        #endif\n\n        #ifdef HAS_TEXTUREALPHA\n            vec4 colImgAlpha=texture(imageAlpha,tc);\n            float colImgAlphaAlpha=colImgAlpha.a;\n\n            #ifdef ALPHA_FROM_LUMINANCE\n                vec3 gray = vec3(dot(vec3(0.2126,0.7152,0.0722), colImgAlpha.rgb ));\n                colImgAlphaAlpha=(gray.r+gray.g+gray.b)/3.0;\n            #endif\n\n            #ifdef ALPHA_FROM_INV_UMINANCE\n                vec3 gray = vec3(dot(vec3(0.2126,0.7152,0.0722), colImgAlpha.rgb ));\n                colImgAlphaAlpha=1.0-(gray.r+gray.g+gray.b)/3.0;\n            #endif\n\n            #ifdef INVERT_ALPHA\n                colImgAlphaAlpha=clamp(colImgAlphaAlpha,0.0,1.0);\n                colImgAlphaAlpha=1.0-colImgAlphaAlpha;\n            #endif\n\n            blendRGBA.a=colImgAlphaAlpha*blendRGBA.a;\n        #endif\n    #endif\n\n    float am=amount;\n\n    #ifdef CLIP_REPEAT\n        if(tc.y>1.0 || tc.y<0.0 || tc.x>1.0 || tc.x<0.0)\n        {\n            // colNew.rgb=vec3(0.0);\n            am=0.0;\n        }\n    #endif\n\n    #ifdef ASPECT_RATIO\n        #ifdef ASPECT_CROP\n            if(tc.y>1.0 || tc.y<0.0 || tc.x>1.0 || tc.x<0.0)\n            {\n                colNew.rgb=base.rgb;\n                am=0.0;\n            }\n\n        #endif\n    #endif\n\n\n\n    blendRGBA.rgb=mix( colNew, base ,1.0-am);\n\n    blendRGBA.a=clamp(baseRGBA.a+(blendRGBA.a*am),0.,1.);\n    // blendRGBA.a=1.0;\n\n    outColor= blendRGBA;\n\n}",drawimage_vert:"IN vec3 vPosition;\nIN vec2 attrTexCoord;\nIN vec3 attrVertNormal;\n\nUNI mat4 projMatrix;\nUNI mat4 mvMatrix;\n\nUNI float posX;\nUNI float posY;\nUNI float scaleX;\nUNI float scaleY;\nUNI float rotate;\n\nOUT vec2 texCoord;\nOUT vec3 norm;\nOUT mat3 transform;\n\nvoid main()\n{\n   texCoord=attrTexCoord;\n   norm=attrVertNormal;\n\n   #ifdef TEX_TRANSFORM\n        vec3 coordinates=vec3(attrTexCoord.x, attrTexCoord.y,1.0);\n        float angle = radians( rotate );\n        vec2 scale= vec2(scaleX,scaleY);\n        vec2 translate= vec2(posX,posY);\n\n        transform = mat3(   scale.x * cos( angle ), scale.x * sin( angle ), 0.0,\n            - scale.y * sin( angle ), scale.y * cos( angle ), 0.0,\n            - 0.5 * scale.x * cos( angle ) + 0.5 * scale.y * sin( angle ) - 0.5 * translate.x*2.0 + 0.5,  - 0.5 * scale.x * sin( angle ) - 0.5 * scale.y * cos( angle ) - 0.5 * translate.y*2.0 + 0.5, 1.0);\n   #endif\n\n   gl_Position = projMatrix * mvMatrix * vec4(vPosition,  1.0);\n}\n",};
+const attachments={drawimage_frag:"#ifdef HAS_TEXTURES\n    IN vec2 texCoord;\n    UNI sampler2D tex;\n    UNI sampler2D image;\n#endif\n\nIN mat3 transform;\nUNI float rotate;\n\n{{CGL.BLENDMODES}}\n\n#ifdef HAS_TEXTUREALPHA\n   UNI sampler2D imageAlpha;\n#endif\n\nUNI float amount;\n\n#ifdef ASPECT_RATIO\n    UNI float aspectTex;\n    UNI float aspectPos;\n#endif\n\nvoid main()\n{\n    vec4 blendRGBA=vec4(0.0,0.0,0.0,1.0);\n    #ifdef HAS_TEXTURES\n        vec2 tc=texCoord;\n\n        #ifdef TEX_FLIP_X\n            tc.x=1.0-tc.x;\n        #endif\n        #ifdef TEX_FLIP_Y\n            tc.y=1.0-tc.y;\n        #endif\n\n        #ifdef ASPECT_RATIO\n            #ifdef ASPECT_AXIS_X\n                tc.y=(1.0-aspectPos)-(((1.0-aspectPos)-tc.y)*aspectTex);\n            #endif\n            #ifdef ASPECT_AXIS_Y\n                tc.x=(1.0-aspectPos)-(((1.0-aspectPos)-tc.x)/aspectTex);\n            #endif\n        #endif\n\n        #ifdef TEX_TRANSFORM\n            vec3 coordinates=vec3(tc.x, tc.y,1.0);\n            tc=(transform * coordinates ).xy;\n        #endif\n\n        blendRGBA=texture(image,tc);\n\n        vec3 blend=blendRGBA.rgb;\n        vec4 baseRGBA=texture(tex,texCoord);\n        vec3 base=baseRGBA.rgb;\n        vec3 colNew=_blend(base,blend);\n\n        #ifdef REMOVE_ALPHA_SRC\n            blendRGBA.a=1.0;\n        #endif\n\n        #ifdef HAS_TEXTUREALPHA\n            vec4 colImgAlpha=texture(imageAlpha,tc);\n            float colImgAlphaAlpha=colImgAlpha.a;\n\n            #ifdef ALPHA_FROM_LUMINANCE\n                vec3 gray = vec3(dot(vec3(0.2126,0.7152,0.0722), colImgAlpha.rgb ));\n                colImgAlphaAlpha=(gray.r+gray.g+gray.b)/3.0;\n            #endif\n\n            #ifdef ALPHA_FROM_INV_UMINANCE\n                vec3 gray = vec3(dot(vec3(0.2126,0.7152,0.0722), colImgAlpha.rgb ));\n                colImgAlphaAlpha=1.0-(gray.r+gray.g+gray.b)/3.0;\n            #endif\n\n            #ifdef INVERT_ALPHA\n                colImgAlphaAlpha=clamp(colImgAlphaAlpha,0.0,1.0);\n                colImgAlphaAlpha=1.0-colImgAlphaAlpha;\n            #endif\n\n            blendRGBA.a=colImgAlphaAlpha*blendRGBA.a;\n        #endif\n    #endif\n\n    float am=amount;\n\n    #ifdef CLIP_REPEAT\n        if(tc.y>1.0 || tc.y<0.0 || tc.x>1.0 || tc.x<0.0)\n        {\n            // colNew.rgb=vec3(0.0);\n            am=0.0;\n        }\n    #endif\n\n    #ifdef ASPECT_RATIO\n        #ifdef ASPECT_CROP\n            if(tc.y>1.0 || tc.y<0.0 || tc.x>1.0 || tc.x<0.0)\n            {\n                colNew.rgb=base.rgb;\n                am=0.0;\n            }\n\n        #endif\n    #endif\n\n\n\n    // blendRGBA.rgb=mix( colNew, base ,1.0-am);\n\n    // blendRGBA.a=clamp((blendRGBA.a*am),0.,1.);\n\n    blendRGBA.rgb=mix( colNew, base ,1.0-(am*blendRGBA.a));\n    blendRGBA.a=clamp(baseRGBA.a+(blendRGBA.a*am),0.,1.);\n\n\n    outColor= blendRGBA;\n\n}\n\n",drawimage_vert:"IN vec3 vPosition;\nIN vec2 attrTexCoord;\nIN vec3 attrVertNormal;\n\nUNI mat4 projMatrix;\nUNI mat4 mvMatrix;\n\nUNI float posX;\nUNI float posY;\nUNI float scaleX;\nUNI float scaleY;\nUNI float rotate;\n\nOUT vec2 texCoord;\nOUT vec3 norm;\nOUT mat3 transform;\n\nvoid main()\n{\n   texCoord=attrTexCoord;\n   norm=attrVertNormal;\n\n   #ifdef TEX_TRANSFORM\n        vec3 coordinates=vec3(attrTexCoord.x, attrTexCoord.y,1.0);\n        float angle = radians( rotate );\n        vec2 scale= vec2(scaleX,scaleY);\n        vec2 translate= vec2(posX,posY);\n\n        transform = mat3(   scale.x * cos( angle ), scale.x * sin( angle ), 0.0,\n            - scale.y * sin( angle ), scale.y * cos( angle ), 0.0,\n            - 0.5 * scale.x * cos( angle ) + 0.5 * scale.y * sin( angle ) - 0.5 * translate.x*2.0 + 0.5,  - 0.5 * scale.x * sin( angle ) - 0.5 * scale.y * cos( angle ) - 0.5 * translate.y*2.0 + 0.5, 1.0);\n   #endif\n\n   gl_Position = projMatrix * mvMatrix * vec4(vPosition,  1.0);\n}\n",};
 const render = op.inTrigger("render");
 const blendMode = CGL.TextureEffect.AddBlendSelect(op, "blendMode");
 const amount = op.inValueSlider("amount", 1);
